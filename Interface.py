@@ -190,27 +190,75 @@ class MakeInvoice:
         with open(invoice_path, 'wb') as f:
             typer.echo(f"Making invoice {invoice_name}")
             f.write(content)
-        doc = fitz.open(invoice_path)
-        derniere_page = doc[-1]
-        image_path="fin_de_page.png"
+        # Ouvrir le PDF principal et le PDF à insérer
+        doc_principal = fitz.open(invoice_path)
+        doc_a_inserer = fitz.open("fin_de_page.pdf")
 
-        # Déterminer la nouvelle taille de l'image
-        # Exemple : réduire de 50% et déplacer plus bas
+        # Sélectionner la dernière page du document principal
+        derniere_page = doc_principal[-1]
+
+        # Sélectionner la première page du PDF à insérer (ajustez si nécessaire)
+        page_a_inserer = doc_a_inserer[0]
+
+        # Déterminer la nouvelle taille et la position pour l'insertion
+        # Exemple : réduire et déplacer plus bas
         largeur_image, hauteur_image = 800, 400  # Nouvelles dimensions souhaitées
         position_bas = 650  # Combien de pixels du bas de la page
 
-
-        # Calculer la position de l'image pour la mettre en bas à gauche
+        # Calculer la position pour mettre le contenu en bas à gauche
         x0, y0 = 0, derniere_page.rect.height - position_bas - hauteur_image
         x1, y1 = largeur_image, derniere_page.rect.height - position_bas
-        # Calculer la position de l'image pour la mettre en bas à gauche
 
-        # Insérer l'image avec les nouvelles dimensions et la nouvelle position
-        derniere_page.insert_image(fitz.Rect(x0, y0, x1, y1), filename=image_path)
+        # Créer un rectangle pour définir où et comment le PDF sera inséré
+        rect_insertion = fitz.Rect(x0, y0, x1, y1)
+
+        # Insérer le contenu du PDF à la position spécifiée
+        derniere_page.show_pdf_page(rect_insertion, doc_a_inserer, 0)  # 0 est l'indice de la page à insérer
 
         # Sauvegarder le PDF modifié
-        doc.save(invoice_path, incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
+        doc_principal.save(invoice_path, incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
 
+        pdf = fitz.open(invoice_path)
+        page = pdf[-1]
+        largeur_page, hauteur_page = page.rect.width, page.rect.height
+        hauteur_widget = 15  # Exemple : 15 points de haut
+        self.create_widget_text(220, hauteur_page - hauteur_widget - 245, 270, hauteur_page - 245, page, "montant paiement comptant")
+        self.create_widget_text(230, hauteur_page - hauteur_widget - 230, 280, hauteur_page - 230, page, "montant financement")
+        self.create_widget_text(380, hauteur_page - hauteur_widget - 230, 450, hauteur_page - 230, page, "oragnisme")
+        self.create_widget_text(390, hauteur_page - 10 - 217, 450, hauteur_page - 217, page, "TAEG")
+        self.create_widget_text(260, hauteur_page - 10 - 217, 310, hauteur_page - 217, page, "mensualite")
+        self.create_widget_text(150, hauteur_page - 10 - 217, 200, hauteur_page - 217, page, "remboursement")
+        self.create_widget_text(390, hauteur_page - 10 - 205, 450, hauteur_page - 205, page, "report")
+        self.create_widget_text(260, hauteur_page - 10 - 205, 310, hauteur_page - 205, page, "cout total")
+        self.create_widget_text(130, hauteur_page - 10 - 205, 170, hauteur_page - 205, page, "taux debiteur")
+        self.create_widget_text(75, hauteur_page - 40 - 65, 160, hauteur_page - 65, page, "sign client")
+        self.create_widget_text(450, hauteur_page - 14 - 88, 570, hauteur_page - 88, page, "name conseiller")
+        self.create_widget_text(430, hauteur_page - 18 - 35, 590, hauteur_page - 35, page, "sign conseiller")
+        self.create_widget_text(73, hauteur_page - 10 - 137, 150, hauteur_page - 137, page, "Date")
+        self.create_widget_checkbox(62, hauteur_page - hauteur_widget - 245, 76, hauteur_page - 245, page, "check paiement comptant")
+        self.create_widget_checkbox(62, hauteur_page - hauteur_widget - 227, 76, hauteur_page - 227, page, "check financement")
+        pdf.save(invoice_path, deflate=True, deflate_images=True, deflate_fonts=True, incremental=True,
+                 encryption=fitz.PDF_ENCRYPT_KEEP)
+
+
+    def create_widget_text(self, x0, y0, x1, y1, page, name):
+        form_field_rect = fitz.Rect(x0, y0, x1, y1)  # Créer le rectangle pour le champ de formulaire
+        form_field_rect = form_field_rect * page.derotation_matrix
+        widget = fitz.Widget()
+        widget.rect = form_field_rect
+        widget.field_type = fitz.PDF_WIDGET_TYPE_TEXT
+        widget.field_name = name
+        widget.field_value = ""
+        page.add_widget(widget)
+
+    def create_widget_checkbox(self, x0, y0, x1, y1, page, name):
+        form_field_rect = fitz.Rect(x0, y0, x1, y1)  # Créer le rectangle pour le champ de formulaire
+        form_field_rect = form_field_rect * page.derotation_matrix
+        widget = fitz.Widget()
+        widget.rect = form_field_rect
+        widget.field_type = fitz.PDF_WIDGET_TYPE_CHECKBOX
+        widget.field_name = name
+        page.add_widget(widget)
 
     def get_invoice(self, invoice):
             r = requests.post(self.endpoint,
