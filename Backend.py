@@ -9,6 +9,19 @@ import random
 import string
 import fitz #PyMuPdf
 
+import sys
+import os
+
+def resource_path(relative_path):
+    """ Obtenez le chemin d'accès aux ressources, fonctionne pour le développement et pour l'exécutable unique."""
+    try:
+        # Si l'application est compilée, le chemin d'accès est relatif au dossier temporaire _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        # Sinon, le chemin d'accès est relatif au dossier actuel
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 @dataclass
 class Invoice:
@@ -134,14 +147,14 @@ class InfoParser:
 
         # Affichage des produits et de leurs prix
         print("Produits et prix saisis :")
-        for nom, prix in produits:
-            item = {"name" : nom + "\nNécessaire à l’intégralité de l'ensemble", "quantity": int(superficie_value), "unit_cost":float(prix)/float(superficie_value)}
+        for nom, prix,quantity in produits:
+            item = {"name" : nom + "\nNécessaire à l’intégralité de l'ensemble", "quantity": int(quantity), "unit_cost": float(prix)}
             invoice_item.items.append(item)
             print(f"Nom du produit: {nom}, Prix: {prix}")
 
         invoice_item.header = "DEVIS"
-        invoice_item.quantity_header = "Quantité (m²)"
-        invoice_item.unit_cost_header = "Prix au m²"
+        invoice_item.quantity_header = "Quantité"
+        invoice_item.unit_cost_header = "Prix unitaire"
         invoice_item.subtotal_title = "Total HT"
         invoice_item.tax_title = "TVA"
         invoice_item.total_title = "Total TTC"
@@ -188,8 +201,36 @@ class MakeInvoice:
             typer.echo(f"Making invoice {invoice_name}")
             f.write(content)
         # Ouvrir le PDF principal et le PDF à insérer
+
+        pdf = fitz.open(invoice_path)
+        page = pdf[-1]
+        page.clean_contents()
+        text = "m²"
+        page.insert_text(fitz.Point(391, 31),  # bottom-left of 1st char
+                         text,  # the text (honors '\n')
+                         fontname="helv",  # the default font
+                         fontsize=10,  # the default font size
+                         rotate=0,  # also available: 90, 180, 270
+                         )
+        page.insert_text(fitz.Point(391, 69),  # bottom-left of 1st char
+                         text,  # the text (honors '\n')
+                         fontname="helv",  # the default font
+                         fontsize=10,  # the default font size
+                         rotate=0,  # also available: 90, 180, 270
+                         )
+        page.insert_text(fitz.Point(391, 107.5),  # bottom-left of 1st char
+                         text,  # the text (honors '\n')
+                         fontname="helv",  # the default font
+                         fontsize=10,  # the default font size
+                         rotate=0,  # also available: 90, 180, 270
+                         )
+
+        pdf.save(invoice_path, deflate=True, deflate_images=True, deflate_fonts=True, incremental=True,
+                 encryption=fitz.PDF_ENCRYPT_KEEP)
+        pdf.close()
+        fin_de_page = resource_path("fin_de_page.pdf")
         doc_principal = fitz.open(invoice_path)
-        doc_a_inserer = fitz.open("fin_de_page.pdf")
+        doc_a_inserer = fitz.open(fin_de_page)
 
         # Sélectionner la dernière page du document principal
         derniere_page = doc_principal[-1]
@@ -199,11 +240,11 @@ class MakeInvoice:
 
         # Déterminer la nouvelle taille et la position pour l'insertion
         # Exemple : réduire et déplacer plus bas
-        largeur_image, hauteur_image = 800, 400  # Nouvelles dimensions souhaitées
-        position_bas = 650  # Combien de pixels du bas de la page
+        largeur_image, hauteur_image = 600, 300  # Nouvelles dimensions souhaitées
+        position_bas = 0  # Combien de pixels du bas de la page
 
         # Calculer la position pour mettre le contenu en bas à gauche
-        x0, y0 = 0, derniere_page.rect.height - position_bas - hauteur_image
+        x0, y0 = 20, derniere_page.rect.height - position_bas - hauteur_image
         x1, y1 = largeur_image, derniere_page.rect.height - position_bas
 
         # Créer un rectangle pour définir où et comment le PDF sera inséré
@@ -219,23 +260,42 @@ class MakeInvoice:
         page = pdf[-1]
         largeur_page, hauteur_page = page.rect.width, page.rect.height
         hauteur_widget = 15  # Exemple : 15 points de haut
-        self.create_widget_text(220, hauteur_page - hauteur_widget - 245, 270, hauteur_page - 245, page, "montant paiement comptant")
-        self.create_widget_text(230, hauteur_page - hauteur_widget - 230, 280, hauteur_page - 230, page, "montant financement")
-        self.create_widget_text(380, hauteur_page - hauteur_widget - 230, 450, hauteur_page - 230, page, "oragnisme")
-        self.create_widget_text(390, hauteur_page - 10 - 217, 450, hauteur_page - 217, page, "TAEG")
-        self.create_widget_text(260, hauteur_page - 10 - 217, 310, hauteur_page - 217, page, "mensualite")
-        self.create_widget_text(150, hauteur_page - 10 - 217, 200, hauteur_page - 217, page, "remboursement")
-        self.create_widget_text(390, hauteur_page - 10 - 205, 450, hauteur_page - 205, page, "report")
-        self.create_widget_text(260, hauteur_page - 10 - 205, 310, hauteur_page - 205, page, "cout total")
-        self.create_widget_text(130, hauteur_page - 10 - 205, 170, hauteur_page - 205, page, "taux debiteur")
-        self.create_widget_text(75, hauteur_page - 40 - 65, 160, hauteur_page - 65, page, "sign client")
-        self.create_widget_text(450, hauteur_page - 14 - 88, 570, hauteur_page - 88, page, "name conseiller")
-        self.create_widget_text(430, hauteur_page - 18 - 35, 590, hauteur_page - 35, page, "sign conseiller")
-        self.create_widget_text(73, hauteur_page - 10 - 137, 150, hauteur_page - 137, page, "Date")
-        self.create_widget_checkbox(62, hauteur_page - hauteur_widget - 245, 76, hauteur_page - 245, page, "check paiement comptant")
-        self.create_widget_checkbox(62, hauteur_page - hauteur_widget - 227, 76, hauteur_page - 227, page, "check financement")
+        self.create_widget_text(220, hauteur_page - hauteur_widget - 255, 270, hauteur_page - 255, page, "montant paiement comptant")
+        self.create_widget_text(230, hauteur_page - hauteur_widget - 240, 280, hauteur_page - 240, page, "montant financement")
+        self.create_widget_text(380, hauteur_page - hauteur_widget - 240, 450, hauteur_page - 240, page, "oragnisme")
+        self.create_widget_text(390, hauteur_page - 10 - 227, 450, hauteur_page - 227, page, "TAEG")
+        self.create_widget_text(260, hauteur_page - 10 - 227, 310, hauteur_page - 227, page, "mensualite")
+        self.create_widget_text(150, hauteur_page - 10 - 227, 200, hauteur_page - 227, page, "remboursement")
+        self.create_widget_text(390, hauteur_page - 10 - 215, 450, hauteur_page - 215, page, "report")
+        self.create_widget_text(260, hauteur_page - 10 - 215, 310, hauteur_page - 215, page, "cout total")
+        self.create_widget_text(130, hauteur_page - 10 - 215, 170, hauteur_page - 215, page, "taux debiteur")
+        self.create_widget_text(75, hauteur_page - 40 - 75, 160, hauteur_page - 75, page, "sign client")
+        self.create_widget_text(450, hauteur_page - 14 - 98, 570, hauteur_page - 98, page, "name conseiller")
+        self.create_widget_text(430, hauteur_page - 18 - 45, 590, hauteur_page - 45, page, "sign conseiller")
+        self.create_widget_text(73, hauteur_page - 10 - 147, 150, hauteur_page - 147, page, "Date")
+        self.create_widget_checkbox(57, hauteur_page - hauteur_widget - 255, 76, hauteur_page - 255, page, "check paiement comptant")
+        self.create_widget_checkbox(57, hauteur_page - hauteur_widget - 237, 76, hauteur_page - 237, page, "check financement")
+        page = pdf[0]
+        page.clean_contents()
+        text = "m²"
+        self.add_text(page, fitz.Point(391, 352.5), text)
+        self.add_text(page, fitz.Point(391, 421), text)
+        self.add_text(page, fitz.Point(391, 459), text)
+        self.add_text(page, fitz.Point(391, 512.5), text)
+        self.add_text(page, fitz.Point(391, 550.5), text)
+        self.add_text(page, fitz.Point(391, 588.5), text)
+        self.add_text(page, fitz.Point(391, 627), text)
+        self.add_text(page, fitz.Point(391, 680), text)
         pdf.save(invoice_path, deflate=True, deflate_images=True, deflate_fonts=True, incremental=True,
                  encryption=fitz.PDF_ENCRYPT_KEEP)
+
+    def add_text(self, page, point, text):
+        page.insert_text(point,  # bottom-left of 1st char
+                         text,  # the text (honors '\n')
+                         fontname="helv",  # the default font
+                         fontsize=10,  # the default font size
+                         rotate=0,  # also available: 90, 180, 270
+                         )
 
 
     def create_widget_text(self, x0, y0, x1, y1, page, name):

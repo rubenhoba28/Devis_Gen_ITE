@@ -9,7 +9,7 @@ class Application():
     def __init__(self):
         self.root = tb.Window(themename='sandstone')
         self.root.title("Devis Client ITE")
-        self.root.geometry("700x900")
+        self.root.geometry("900x900")
         self.root.resizable(True, True)  # Autoriser la redimensionnement de la fenêtre
 
 
@@ -28,7 +28,7 @@ class Application():
         self.scrollable_frame.pack(fill='both', expand=True)
 
         # Charger et afficher le logo (Assurez-vous d'ajuster le chemin d'accès selon vos besoins)
-        logo_path = 'logo_senergie_final.png'
+        logo_path = resource_path('logo_senergie_final.png')
         self.logo_image = tk.PhotoImage(file=logo_path)
         logo_label = ttk.Label(self.scrollable_frame, image=self.logo_image)
         logo_label.pack(padx=10, pady=10)
@@ -112,23 +112,27 @@ class Application():
             nom_entry = ttk.Entry(self.produits_frame)
             nom_entry.grid(row=row, column=1, pady=5, padx=5)  # Ajouté padx pour l'espacement horizontal
 
-            prix_label = ttk.Label(self.produits_frame, text="Prix:")  # Texte simplifié pour "Prix"
+            prix_label = ttk.Label(self.produits_frame, text="Prix unitaire:")  # Texte simplifié pour "Prix"
             prix_label.grid(row=row, column=2, sticky='w', pady=5)
-
             prix_entry = ttk.Entry(self.produits_frame)
             prix_entry.grid(row=row, column=3, pady=5)
 
-            # Stocker les références aux champs d'entrée dans la liste
-            self.produit_entries.append((nom_entry, prix_entry))
+            quantite_label = ttk.Label(self.produits_frame, text="Quantité:")  # Nouveau label pour la quantité
+            quantite_label.grid(row=row, column=4, sticky='w', pady=5)
+            quantite_entry = ttk.Entry(self.produits_frame)  # Nouvelle entrée pour la quantité
+            quantite_entry.grid(row=row, column=5, pady=5)
 
+            # Stocker les références aux champs d'entrée dans la liste
+            self.produit_entries.append((nom_entry, prix_entry, quantite_entry))
 
     def recuperer_produits(self):
         """Récupère les noms et les prix des produits à partir des champs d'entrée."""
         produits = []
-        for nom_entry, prix_entry in self.produit_entries:
+        for nom_entry, prix_entry,quantite_entry in self.produit_entries:
             nom = nom_entry.get()
             prix = prix_entry.get()
-            produits.append((nom, prix))
+            quantity = quantite_entry.get()
+            produits.append((nom, prix,quantity))
         return produits
 
     def clear_form(self):
